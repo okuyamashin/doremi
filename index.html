@@ -56,6 +56,11 @@ button {
   transition: transform .08s, box-shadow .08s;
 }
 button:active { transform: translateY(4px); box-shadow: 0 2px 0 color-mix(in srgb, var(--pink) 55%, #000); }
+button.ghost {
+  background: transparent; color: var(--pink); box-shadow: none; min-height: 48px; font-size: 15px; font-weight: 700;
+  padding: 0 12px; margin-top: -10px; text-decoration: underline; text-underline-offset: 4px;
+}
+button.ghost:active { transform: none; box-shadow: none; }
 button:focus-visible { outline: 3px solid var(--sky); outline-offset: 4px; }
 .cover { width: 100%; height: auto; aspect-ratio: 1731 / 909; object-fit: cover; border-radius: 18px; display: block; background: var(--soft); }
 
@@ -97,6 +102,7 @@ canvas { display: block; width: 100%; height: 64px; border-radius: 14px; backgro
     <img class="cover" src="cover.webp" alt="ドレミの恋のジャケット。窓辺で微笑む女性と夕暮れの街。" width="1200" height="630">
     <p class="lead">名曲「ドレミの恋」に、あなたの「ドー」を勝手に足して、台無しにします。</p>
     <button id="micBtn">マイクをオン</button>
+    <button id="sampleBtn" class="ghost">サンプルのドだけちょうだい（ごめん、許して）</button>
     <p class="fine">マイクの音はこの端末の中だけで使い、どこにも送りません。</p>
   </section>
 
@@ -496,8 +502,34 @@ function progress() {
   requestAnimationFrame(progress);
 }
 
+// 歌いたくない人向け：合成した「あー」（C4）で代用する
+function synthSample() {
+  const sr = audio().sampleRate, dur = 1.6, N = Math.floor(sr * dur);
+  const data = new Float32Array(N);
+  const F = [[800, 1, 90], [1150, 0.5, 100], [2900, 0.22, 150]];
+  const H = Math.floor(4500 / C4), amps = [];
+  for (let h = 1; h <= H; h++) { let a = 0; for (const [fc, g, bw] of F) a += g / (1 + ((C4 * h - fc) / bw) ** 2); amps.push((a + 0.02) / Math.sqrt(h)); }
+  const ph = new Float64Array(H);
+  for (let i = 0; i < N; i++) {
+    const t = i / sr, f = C4 * (1 + (t > 0.45 ? 0.006 * Math.sin(2 * Math.PI * 5.2 * t) : 0));
+    let s = 0;
+    for (let h = 0; h < H; h++) { ph[h] += 2 * Math.PI * f * (h + 1) / sr; s += amps[h] * Math.sin(ph[h]); }
+    data[i] = s * Math.min(1, t / 0.08) * Math.min(1, (dur - t) / 0.15) * 0.3;
+  }
+  return makeClip(data, sr, C4, 0.15, 1.42);
+}
+function useSample() {
+  audio().resume();
+  clip = synthSample();
+  captured = true;
+  loadSong();
+  document.querySelector("#scPlay .songhead span").textContent = "with いらないコーラス（サンプルのド）";
+  show("scPlay"); prepPlayer();
+}
+
 renderLyrics();
 $("micBtn").onclick = startMic;
+$("sampleBtn").onclick = useSample;
 $("playBtn").onclick = () => (player ? stop() : play());
 </script>
 </body>
