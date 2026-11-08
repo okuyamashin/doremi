@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ひと声オーケストラ コーラス</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: same column as the other pages; a scrolling piano roll is the centrepiece */
+:root {
+  --bg: #eef1f4; --panel: #ffffff; --fg: #1b2230; --muted: #5d6779; --line: #d5dbe4;
+  --accent: #3546d6; --accent-ink: #ffffff; --soft: #e3e7fb; --ok: #17905a; --harm: #e0569a; --roll: #f6f8fa;
+  --display: "Dela Gothic One", "Hiragino Sans", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11141b; --panel: #1a1f29; --fg: #e6e9f0; --muted: #98a1b3; --line: #2c3342;
+    --accent: #8796ff; --accent-ink: #10131a; --soft: #242b45; --ok: #3ccf8a; --harm: #f07ab4; --roll: #141821;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 20px) calc(env(safe-area-inset-bottom, 0px) + 130px);
+}
+main { max-width: 640px; margin: 0 auto; display: grid; gap: 18px; }
+header h1 { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.2; margin: 0; }
+header h1 small { display: block; font-size: 15px; color: var(--accent); letter-spacing: .1em; }
+header p { margin: 6px 0 0; color: var(--muted); }
+a { color: var(--accent); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.card h2 { margin: 0; font-size: 18px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+button, select {
+  font: inherit; font-weight: 500; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); padding: 10px 14px; min-height: 44px; cursor: pointer;
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
+.label { font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 0 -6px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--soft); color: var(--accent); }
+.badge.mine { background: color-mix(in srgb, var(--ok) 18%, var(--panel)); color: var(--ok); }
+.ctrl { display: grid; grid-template-columns: 7em 1fr 4.6em; gap: 10px; align-items: center; }
+.ctrl output { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; text-align: right; color: var(--muted); }
+input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); }
+.checks label { display: flex; gap: 8px; align-items: center; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+#roll { display: block; width: 100%; height: 220px; border-radius: 10px; background: var(--roll); }
+.mixer { display: grid; gap: 8px; }
+.track { display: grid; grid-template-columns: 9.5em 1fr 3.4em 5em; gap: 10px; align-items: center; }
+.track label { font-size: 14px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.track label i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.track output { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; text-align: right; color: var(--muted); }
+.track button { min-height: 36px; padding: 4px 0; font-size: 13px; }
+.track button[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+.track.muted input, .track.muted output { opacity: .4; }
+@media (max-width: 420px) { .track { grid-template-columns: 7.5em 1fr 5em; } .track output { display: none; } }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 8px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+
+.transport {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--panel); border-top: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
+}
+.transport .inner { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto auto; gap: 8px 10px; align-items: center; }
+.transport .seek { grid-column: 1 / -1; display: grid; grid-template-columns: 3em 1fr 3em; gap: 8px; align-items: center; }
+#playBtn { min-width: 6em; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><small>ひと声オーケストラ</small>コーラス</h1>
+    <p>ボーカルから読み取ったメロディを、あなたの「ドー」で歌います。ドの声は<a href="index.html">STEP 1</a>で録れます。</p>
+  </header>
+
+  <section class="card" aria-labelledby="hRoll">
+    <div class="row">
+      <h2 id="hRoll">ドレミの恋</h2>
+      <span class="badge" id="clipBadge">サンプル声（合成）</span>
+    </div>
+    <canvas id="roll" aria-label="メロディの表示"></canvas>
+    <div class="legend"><span><i style="background:var(--accent)"></i>メロディ</span><span><i style="background:var(--harm)"></i>ハモり</span><span class="mono" id="keyTxt"></span></div>
+  </section>
+
+  <section class="card" aria-labelledby="hPart">
+    <h2 id="hPart">歌い方</h2>
+    <p class="label">モード</p>
+    <div class="seg" id="modeSeg">
+      <button data-v="chord" aria-pressed="true">コードを伸ばす</button>
+      <button data-v="phrase" aria-pressed="false">フレーズ頭を伸ばす</button>
+      <button data-v="melody" aria-pressed="false">メロディどおり</button>
+    </div>
+    <p class="hint" id="modeHint"></p>
+    <p class="label">どのパートを歌うか</p>
+    <div class="seg" id="partSeg">
+      <button data-v="lead" aria-pressed="true">主旋律</button>
+      <button data-v="backing" aria-pressed="false">バックコーラス</button>
+    </div>
+    <p class="label">ハモり</p>
+    <div class="seg" id="harmSeg">
+      <button data-v="none" aria-pressed="false">ユニゾン</button>
+      <button data-v="up" aria-pressed="true">3度上</button>
+      <button data-v="down" aria-pressed="false">3度下</button>
+      <button data-v="both" aria-pressed="false">上下とも</button>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="mel"> メロディも一緒に歌う</label>
+      <label><input type="checkbox" id="octDown"> 1オクターブ下を重ねる</label>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="hMixer">
+    <h2 id="hMixer">ミキサー</h2>
+    <div class="seg" id="mixPreset">
+      <button data-p="full" aria-pressed="true">フル</button>
+      <button data-p="acappella" aria-pressed="false">アカペラ</button>
+      <button data-p="karaoke" aria-pressed="false">カラオケ</button>
+      <button data-p="solo" aria-pressed="false">あなたの声だけ</button>
+    </div>
+    <div class="mixer" id="mixer"></div>
+    <p class="hint">アカペラはボーカルと声だけで鳴らします。あなたの声のオクターブ下がベース役になります。</p>
+  </section>
+
+  <section class="card" aria-labelledby="hMix">
+    <h2 id="hMix">あなたの声</h2>
+    <div class="ctrl"><label for="voices">人数</label><input id="voices" type="range" min="1" max="24" step="1" value="6"><output id="voicesOut"></output></div>
+    <div class="ctrl"><label for="spread">ゆらぎ</label><input id="spread" type="range" min="0" max="30" step="1" value="8"><output id="spreadOut"></output></div>
+    <div class="ctrl"><label for="oct">高さ</label><input id="oct" type="range" min="-2" max="2" step="1" value="0"><output id="octOut"></output></div>
+    <div class="ctrl"><label for="reverb">残響</label><input id="reverb" type="range" min="0" max="100" step="1" value="35"><output id="reverbOut"></output></div>
+  </section>
+</main>
+
+<div class="transport">
+  <div class="inner">
+    <span class="mono" id="nowTxt">—</span>
+    <button id="playBtn" class="primary">再生</button>
+    <button id="wavBtn">WAVで保存</button>
+    <div class="seek"><span class="mono" id="tCur">0:00</span><input id="seek" type="range" min="0" max="147" step="0.1" value="0" aria-label="再生位置"><span class="mono" id="tDur">2:27</span></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const JA = ["ド", "ド#", "レ", "レ#", "ミ", "ファ", "ファ#", "ソ", "ソ#", "ラ", "ラ#", "シ"];
+let ctx = null;
+function audio() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+async function resume() { const c = audio(); if (c.state !== "running") await c.resume(); return c; }
+const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
+const SONG = {
+  stems: { vocal: "songs/doremi-vocal.m4a", bvox: "songs/doremi-bvox.m4a", drums: "songs/doremi-drums.m4a", other: "songs/doremi-other.m4a" },
+  parts: { lead: "songs/doremi-lead.json", backing: "songs/doremi-backing.json" },
+};
+const state = { mode: "chord", part: "lead", harm: "up" };
+const stems = {}, parts = {};
+const TRACKS = [
+  { k: "vocal", name: "ボーカル", color: "#3546d6" },
+  { k: "chorus", name: "あなたの声", color: "#e0569a" },
+  { k: "bvox", name: "原曲のコーラス", color: "#b05cff" },
+  { k: "drums", name: "ドラム", color: "#e8a020" },
+  { k: "other", name: "ドラム以外の伴奏", color: "#17905a" },
+];
+const MIX_PRESETS = {
+  full:      { vocal: 100, chorus: 70,  bvox: 80, drums: 80, other: 80 },
+  acappella: { vocal: 100, chorus: 100, bvox: 80, drums: 0,  other: 0 },
+  karaoke:   { vocal: 0,   chorus: 100, bvox: 60, drums: 80, other: 80 },
+  solo:      { vocal: 0,   chorus: 100, bvox: 0,  drums: 0,  other: 0 },
+};
+const mix = { vol: { ...MIX_PRESETS.full }, muted: {}, preset: "full" };
+let chords = null;
+const MODE_HINT = {
+  chord: "伴奏から読み取ったコードを、3声の「あー」で長く伸ばします。ハモりの設定は使いません。",
+  phrase: "歌のフレーズごとに、最初の音をフレーズの終わりまで伸ばします。",
+  melody: "読み取ったメロディを1音ずつそのまま歌います。",
+};
+
+// ---------- 声のクリップ（STEP 1 で保存したもの） ----------
+let clip = null;
+function makeClip(data, sr, f0, stableStart, stableEnd, mine) {
+  const s0 = Math.floor(stableStart * sr), s1 = Math.floor(stableEnd * sr);
+  let peak = 0;
+  for (let i = s0; i < s1; i++) peak = Math.max(peak, Math.abs(data[i]));
+  const g = peak > 0 ? 0.9 / peak : 1;
+  const out = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) out[i] = Math.max(-1, Math.min(1, data[i] * g));
+  const fade = Math.floor(sr * 0.02);
+  for (let i = 0; i < fade && i < out.length; i++) { out[i] *= i / fade; out[out.length - 1 - i] *= i / fade; }
+  const buffer = audio().createBuffer(1, out.length, sr);
+  buffer.copyToChannel(out, 0);
+  const S = stableEnd - stableStart;
+  let ls = Math.floor((stableStart + S * 0.25) * sr);
+  for (let i = ls; i < ls + sr / f0 * 2 && i < out.length - 1; i++) { if (out[i] <= 0 && out[i + 1] > 0) { ls = i; break; } }
+  const n = Math.max(1, Math.floor((S * 0.5 * sr) / (sr / f0)));
+  return { buffer, f0, midi: 69 + 12 * Math.log2(f0 / 440), stableStart, stableEnd, loopStart: ls / sr, loopEnd: (ls + n * sr / f0) / sr, mine };
+}
+function synthSample() {
+  const C4 = 261.6256, sr = audio().sampleRate, dur = 1.6, N = Math.floor(sr * dur);
+  const data = new Float32Array(N);
+  const F = [[800, 1, 90], [1150, 0.5, 100], [2900, 0.22, 150]];
+  const H = Math.floor(4500 / C4), amps = [];
+  for (let h = 1; h <= H; h++) { let a = 0; for (const [fc, g, bw] of F) a += g / (1 + ((C4 * h - fc) / bw) ** 2); amps.push((a + 0.02) / Math.sqrt(h)); }
+  const ph = new Float64Array(H);
+  for (let i = 0; i < N; i++) {
+    const t = i / sr, f = C4 * (1 + (t > 0.45 ? 0.006 * Math.sin(2 * Math.PI * 5.2 * t) : 0));
+    let s = 0;
+    for (let h = 0; h < H; h++) { ph[h] += 2 * Math.PI * f * (h + 1) / sr; s += amps[h] * Math.sin(ph[h]); }
+    data[i] = s * Math.min(1, t / 0.08) * Math.min(1, (dur - t) / 0.15) * 0.3;
+  }
+  return makeClip(data, sr, C4, 0.15, 1.42, false);
+}
+async function loadSavedClip() {
+  try {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("hitokoe", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("clips");
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    const v = await new Promise((res) => {
+      const r = db.transaction("clips").objectStore("clips").get("main");
+      r.onsuccess = () => res(r.result || null); r.onerror = () => res(null);
+    });
+    if (v && v.data && v.data.length) return makeClip(v.data, v.sr, v.f0, v.stableStart, v.stableEnd, true);
+  } catch {}
+  return null;
+}
+
+// ---------- メロディとハモり ----------
+function scaleOf(key) { return [0, 2, 4, 5, 7, 9, 11].map((s) => (s + key) % 12); }
+function diatonic(m, key, steps) {
+  const sc = scaleOf(key), pc = ((m % 12) + 12) % 12, i = sc.indexOf(pc);
+  if (i < 0) return m + (steps > 0 ? 4 : -3);
+  let out = m, j = i;
+  const dir = Math.sign(steps);
+  for (let k = 0; k < Math.abs(steps); k++) {
+    const nj = (j + dir + 7) % 7;
+    let diff = (sc[nj] - sc[j] + 12) % 12;
+    if (dir < 0) diff = diff - 12;
+    out += diff; j = nj;
+  }
+  return out;
+}
+// 隙間の短い音はつなげて、なめらかにする
+function legato(notes) {
+  return notes.map((n, i) => {
+    const next = notes[i + 1];
+    const gap = next ? next.t - (n.t + n.d) : 1;
+    return { ...n, d: gap > 0 && gap < 0.15 ? next.t - n.t : n.d };
+  });
+}
+const S = () => ({
+  voices: +$("voices").value, spread: +$("spread").value, oct: +$("oct").value, reverb: +$("reverb").value / 100,
+  mix: Object.fromEntries(TRACKS.map((t) => [t.k, mix.muted[t.k] ? 0 : mix.vol[t.k] / 100])),
+  mel: $("mel").checked, octDown: $("octDown").checked,
+});
+// フレーズ（0.35秒以上の休みで区切る）ごとに最初の音を伸ばす
+function phraseHolds(notes) {
+  const out = [];
+  let cur = null;
+  for (const n of notes) {
+    if (cur && n.t - cur.end < 0.35) { cur.end = n.t + n.d; continue; }
+    if (cur) out.push({ t: cur.t, d: cur.end - cur.t, m: cur.m });
+    cur = { t: n.t, end: n.t + n.d, m: n.m };
+  }
+  if (cur) out.push({ t: cur.t, d: cur.end - cur.t, m: cur.m });
+  return out;
+}
+// コードを3声に並べる。前のコードからなるべく動かない形を選ぶ
+function chordPads(center) {
+  const out = [];
+  let prev = null;
+  for (let i = 0; i < chords.length; i++) {
+    const c = chords[i], next = chords[i + 1];
+    const tones = [0, c.q === "m" ? 3 : 4, 7].map((x) => (c.root + x) % 12);
+    let best = null;
+    for (let base = center - 9; base <= center + 3; base++) {
+      // base 以上で一番近い位置に各音を置く
+      const v = tones.map((pc) => base + ((pc - base) % 12 + 12) % 12).sort((a, b) => a - b);
+      if (v[2] - v[0] > 9) continue;
+      const cost = prev ? v.reduce((s, m, k) => s + Math.abs(m - prev[k]), 0) : Math.abs(v[1] - center);
+      if (!best || cost < best.cost) best = { v, cost };
+    }
+    prev = best.v;
+    const end = next && next.t - (c.t + c.d) < 0.6 ? next.t + 0.08 : c.t + c.d;
+    for (const m of best.v) out.push({ t: c.t, d: end - c.t, m, role: "chord", w: 0.6, pad: true, name: c.name });
+    out.root = c.root;
+  }
+  return out;
+}
+// 歌う音のリスト: [{t, d, m, role}]
+function voicesToSing(s) {
+  const p = parts[state.part]; if (!p) return [];
+  const out = [];
+  if (state.mode === "chord") {
+    if (!chords) return [];
+    const ms = p.notes.map((n) => n.m).sort((a, b) => a - b);
+    const pads = chordPads(ms[Math.floor(ms.length / 2)] - 5);
+    out.push(...pads);
+    if (s.octDown) {
+      for (let i = 0; i < pads.length; i += 3) {
+        const low = Math.min(pads[i].m, pads[i + 1].m, pads[i + 2].m);
+        const root = chords.find((c) => c.t === pads[i].t).root;
+        const r = low - (((low - root) % 12) + 12) % 12;
+        out.push({ ...pads[i], m: r - (r > low - 5 ? 12 : 0), w: 0.55 });
+      }
+    }
+    if (s.mel) for (const n of legato(p.notes)) out.push({ t: n.t, d: n.d, m: n.m, role: "mel", w: 1 });
+    return out.sort((a, b) => a.t - b.t);
+  }
+  const src = state.mode === "phrase" ? phraseHolds(legato(p.notes)) : legato(p.notes);
+  for (const n of src) {
+    if (s.mel || state.mode === "phrase") out.push({ t: n.t, d: n.d, m: n.m, role: "mel", w: 1, pad: state.mode === "phrase" });
+    const pad = state.mode === "phrase";
+    if (state.harm === "up" || state.harm === "both") out.push({ t: n.t, d: n.d, m: diatonic(n.m, p.key, 2), role: "harm", w: 0.75, pad });
+    if (state.harm === "down" || state.harm === "both") out.push({ t: n.t, d: n.d, m: diatonic(n.m, p.key, -2), role: "harm", w: 0.75, pad });
+    if (s.octDown) out.push({ t: n.t, d: n.d, m: n.m - 12, role: "harm", w: 0.6, pad });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+// 録った声の高さに合わせて、曲全体を何オクターブずらすか
+function autoOctave() {
+  if (!clip) return 0;
+  const ms = voicesToSing(S()).map((n) => n.m).sort((a, b) => a - b);
+  if (!ms.length) return 0;
+  return Math.round((clip.midi - ms[Math.floor(ms.length / 2)]) / 12);
+}
+
+// ---------- 合唱エンジン ----------
+let voiceSet = null;
+function voicesFor(s) {
+  if (voiceSet && voiceSet.n === s.voices && voiceSet.spread === s.spread) return voiceSet.list;
+  const list = [{ det: 0, dt: 0, pan: 0 }];
+  for (let i = 1; i < s.voices; i++) list.push({ det: (Math.random() * 2 - 1) * s.spread, dt: Math.random() * 0.025, pan: (Math.random() * 2 - 1) * 0.8 });
+  voiceSet = { n: s.voices, spread: s.spread, list };
+  return list;
+}
+const irs = {};
+function hallIR(c) {
+  if (irs[c.sampleRate]) return irs[c.sampleRate];
+  const sr = c.sampleRate, len = Math.floor(sr * 2.6), pre = Math.floor(sr * 0.02), b = c.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch);
+    for (let i = pre; i < len; i++) { const t = (i - pre) / sr; d[i] = (Math.random() * 2 - 1) * Math.exp(-t * 2.6) * (1 - Math.exp(-t * 60)); }
+  }
+  return (irs[c.sampleRate] = b);
+}
+// 各トラック → それぞれの音量 → master。あなたの声は bus → 残響 → chorusOut
+function makeGraph(c, s, offline) {
+  const master = c.createGain();
+  const bus = c.createGain(), dry = c.createGain(), wet = c.createGain(), conv = c.createConvolver(), chorusOut = c.createGain();
+  conv.buffer = hallIR(c);
+  bus.connect(dry); dry.connect(chorusOut); bus.connect(conv); conv.connect(wet); wet.connect(chorusOut);
+  chorusOut.connect(master);
+  if (offline) master.connect(c.destination);
+  else { const comp = c.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 3; master.connect(comp); comp.connect(c.destination); }
+  const stem = {};
+  for (const t of TRACKS) if (t.k !== "chorus") { stem[t.k] = c.createGain(); stem[t.k].connect(master); }
+  const gr = { master, bus, dry, wet, chorusOut, stem };
+  applyMix(gr, s);
+  return gr;
+}
+// 4本のトラックを同じ時刻から鳴らす
+function startStems(c, gr, when, from) {
+  return Object.keys(gr.stem).map((k) => {
+    const src = c.createBufferSource(); src.buffer = stems[k]; src.connect(gr.stem[k]);
+    src.start(when, from);
+    return src;
+  });
+}
+function applyMix(gr, s) {
+  for (const k in gr.stem) gr.stem[k].gain.value = s.mix[k];
+  gr.chorusOut.gain.value = s.mix.chorus * 0.8;
+  gr.dry.gain.value = 1 - s.reverb * 0.5;
+  gr.wet.gain.value = s.reverb * 0.8;
+}
+function singNote(c, out, n, when, s, octShift) {
+  const vs = voicesFor(s);
+  const g0 = n.w / Math.sqrt(vs.length) * 0.5;
+  const target = n.m + 12 * octShift;
+  const rate = Math.pow(2, (target - clip.midi) / 12);
+  for (const v of vs) {
+    const t = when + v.dt;
+    const src = c.createBufferSource();
+    src.buffer = clip.buffer;
+    src.playbackRate.value = rate;
+    if (src.detune) src.detune.value = v.det + (vs.length > 1 ? (Math.random() * 2 - 1) * 3 : 0);
+    const offset = Math.max(0, clip.stableStart - 0.02);
+    const avail = (clip.buffer.duration - offset) / rate;
+    if (n.d + 0.1 > avail) { src.loop = true; src.loopStart = clip.loopStart; src.loopEnd = clip.loopEnd; }
+    const g = c.createGain();
+    const atk = n.pad ? Math.min(0.15, n.d * 0.3) : Math.min(0.02, n.d * 0.25);
+    const rel = n.pad ? 0.3 : Math.min(0.08, n.d * 0.4);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(g0, t + atk);
+    g.gain.setValueAtTime(g0, t + n.d);
+    g.gain.linearRampToValueAtTime(0, t + n.d + rel);
+    src.connect(g);
+    if (c.createStereoPanner && v.pan) { const p = c.createStereoPanner(); p.pan.value = v.pan; g.connect(p); p.connect(out); }
+    else g.connect(out);
+    src.start(t, offset);
+    src.stop(t + n.d + rel + 0.02);
+  }
+}
+
+// ---------- 再生 ----------
+let player = null;
+let stemsReady = null;
+function loadStems() {
+  if (stemsReady) return stemsReady;
+  stemsReady = Promise.all(Object.entries(SONG.stems).map(async ([k, url]) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(url + " が見つかりません");
+    stems[k] = await audio().decodeAudioData(await res.arrayBuffer());
+  })).then(() => stems.vocal);
+  return stemsReady;
+}
+async function loadPart(kind) {
+  if (parts[kind]) return parts[kind];
+  const res = await fetch(SONG.parts[kind]);
+  return (parts[kind] = await res.json());
+}
+async function play(from) {
+  const c = await resume();
+  await loadStems();
+  await loadPart(state.part);
+  stopPlay(true);
+  const s = S(), gr = makeGraph(c, s);
+  const t0 = c.currentTime + 0.15 - from; // 曲の0秒に当たる時刻
+  const srcs = startStems(c, gr, t0 + from, from);
+  const list = voicesToSing(s);
+  let idx = list.findIndex((n) => n.t >= from); if (idx < 0) idx = list.length;
+  player = { gr, srcs, t0, list, idx, oct: autoOctave() + s.oct };
+  const me = player;
+  srcs[0].onended = () => { if (player === me) stopPlay(); };
+  player.timer = setInterval(tick, 30);
+  tick();
+  $("playBtn").textContent = "停止";
+}
+function tick() {
+  const p = player; if (!p) return;
+  const c = audio(), s = S();
+  while (p.idx < p.list.length && p.t0 + p.list[p.idx].t < c.currentTime + 0.3) {
+    const n = p.list[p.idx++];
+    const when = p.t0 + n.t;
+    if (when >= c.currentTime - 0.01) singNote(c, p.gr.bus, n, Math.max(when, c.currentTime), s, p.oct);
+  }
+}
+function stopPlay(silent) {
+  if (!player) return;
+  const p = player; player = null;
+  clearInterval(p.timer);
+  const c = audio(), t = c.currentTime;
+  p.gr.master.gain.setValueAtTime(p.gr.master.gain.value, t);
+  p.gr.master.gain.linearRampToValueAtTime(0, t + 0.06);
+  setTimeout(() => { for (const s of p.srcs) { try { s.stop(); } catch {} } p.gr.master.disconnect(); }, 120);
+  $("seek").value = Math.max(0, c.currentTime - p.t0);
+  if (!silent) $("playBtn").textContent = "再生";
+}
+// 設定を変えたら、今の位置から鳴らし直す
+function restartIfPlaying() { if (player) { const pos = audio().currentTime - player.t0; play(Math.max(0, pos)); } }
+
+async function exportWav() {
+  const btn = $("wavBtn"); btn.disabled = true; btn.textContent = "作成中…";
+  try {
+    const buf = await loadStems(); await loadPart(state.part);
+    const s = S(), sr = buf.sampleRate;
+    const oc = new OfflineAudioContext(2, buf.length + Math.floor(sr * 2), sr);
+    const gr = makeGraph(oc, s, true);
+    startStems(oc, gr, 0, 0);
+    const out = await renderChorus(oc, gr.bus, s, buf.duration);
+    normalize(out, 0.95);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(encodeWav(out));
+    a.download = `chorus-doremi-${state.mode}-${mix.preset || "mix"}.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+  } catch (e) { console.error(e); $("nowTxt").textContent = "書き出しに失敗しました"; }
+  finally { btn.disabled = false; btn.textContent = "WAVで保存"; }
+}
+// 全部の音を最初に予約すると重いので、2秒ずつ止めながら予約していく
+function renderChorus(oc, bus, s, dur) {
+  const oct = autoOctave() + s.oct, list = voicesToSing(s), STEP = 2;
+  let i = 0;
+  const feed = (until) => { while (i < list.length && list[i].t < until) { const n = list[i++]; singNote(oc, bus, n, n.t, s, oct); } };
+  feed(STEP);
+  for (let t = STEP; t < Math.min(dur + STEP, oc.length / oc.sampleRate); t += STEP) {
+    oc.suspend(t).then(() => { feed(t + STEP); oc.resume(); });
+  }
+  return oc.startRendering();
+}
+function normalize(buf, target) {
+  let pk = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); }
+  if (pk > 0) for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= target / pk; }
+}
+function encodeWav(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate;
+  const dv = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); dv.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, ch, true); dv.setUint32(24, sr, true);
+  dv.setUint32(28, sr * ch * 2, true); dv.setUint16(32, ch * 2, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, n * ch * 2, true);
+  const chans = []; for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = Math.max(-1, Math.min(1, chans[c][i])); dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+  return new Blob([dv], { type: "audio/wav" });
+}
+
+// ---------- ピアノロール ----------
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function drawRoll() {
+  const cv = $("roll"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = r.width, h = r.height;
+  g.clearRect(0, 0, w, h);
+  const pos = player ? audio().currentTime - player.t0 : +$("seek").value;
+  const list = player ? player.list : voicesToSing(S());
+  const win = 8, t0 = pos - 2, t1 = t0 + win;
+  const vis = list.filter((n) => n.t + n.d > t0 && n.t < t1);
+  let lo = 60, hi = 76;
+  if (vis.length) { lo = Math.min(...vis.map((n) => n.m)) - 2; hi = Math.max(...vis.map((n) => n.m)) + 2; }
+  const key = parts[state.part] ? parts[state.part].key : 4;
+  const row = (h - 8) / (hi - lo + 1);
+  const y = (m) => 4 + (hi - m) * row;
+  const x = (t) => ((t - t0) / win) * w;
+  // 調の音の行をうっすら
+  const sc = scaleOf(key);
+  for (let m = lo; m <= hi; m++) {
+    if (!sc.includes(((m % 12) + 12) % 12)) { g.fillStyle = css("--line"); g.globalAlpha = 0.35; g.fillRect(0, y(m), w, row); g.globalAlpha = 1; }
+    if (((m % 12) + 12) % 12 === key) { g.fillStyle = css("--muted"); g.font = "10px " + css("--mono"); g.fillText(NAMES[key] + (Math.floor(m / 12) - 1), 4, y(m) + row - 2); }
+  }
+  for (const n of vis) {
+    g.fillStyle = n.role === "mel" ? css("--accent") : css("--harm");
+    if (n.role === "chord" && n === vis.find((x) => x.t === n.t && x.role === "chord")) {
+      g.globalAlpha = 1; g.font = "11px " + css("--mono"); g.fillText(n.name, Math.max(2, x(n.t) + 2), 12);
+      g.fillStyle = css("--harm");
+    }
+    g.globalAlpha = n.role === "mel" ? 1 : 0.8;
+    const xx = x(n.t), ww = Math.max(2, x(n.t + n.d) - xx - 1);
+    g.beginPath(); g.roundRect ? g.roundRect(xx, y(n.m) + 1, ww, Math.max(3, row - 2), 3) : g.rect(xx, y(n.m) + 1, ww, Math.max(3, row - 2)); g.fill();
+  }
+  g.globalAlpha = 1;
+  g.strokeStyle = css("--fg"); g.lineWidth = 2;
+  g.beginPath(); g.moveTo(x(pos), 0); g.lineTo(x(pos), h); g.stroke();
+  $("tCur").textContent = fmt(Math.max(0, pos));
+  if (player) {
+    $("seek").value = pos;
+    const chordNow = list.find((n) => n.role === "chord" && n.t <= pos && n.t + n.d > pos);
+    const cur = list.find((n) => n.role === "mel" && n.t <= pos && n.t + n.d > pos) || list.find((n) => n.t <= pos && n.t + n.d > pos);
+    $("nowTxt").textContent = chordNow ? `コード ${chordNow.name}` : cur ? `${JA[((cur.m % 12) + 12) % 12]}（${NAMES[((cur.m % 12) + 12) % 12]}${Math.floor(cur.m / 12) - 1}）` : "…";
+  }
+  requestAnimationFrame(drawRoll);
+}
+
+// ---------- 画面 ----------
+function refreshOutputs() {
+  const s = S();
+  $("voicesOut").textContent = s.voices + "人";
+  $("spreadOut").textContent = s.spread + "¢";
+  $("octOut").textContent = s.oct === 0 ? "自動" : (s.oct > 0 ? "+" : "") + s.oct + "oct";
+  $("reverbOut").textContent = Math.round(s.reverb * 100) + "%";
+}
+function renderMixer() {
+  const host = $("mixer"); host.innerHTML = "";
+  for (const t of TRACKS) {
+    const row = document.createElement("div");
+    row.className = "track" + (mix.muted[t.k] ? " muted" : "");
+    row.innerHTML = `<label for="mx-${t.k}"><i style="background:${t.color}"></i>${t.name}</label>
+      <input id="mx-${t.k}" type="range" min="0" max="150" step="1" value="${mix.vol[t.k]}">
+      <output>${mix.vol[t.k]}%</output>
+      <button aria-pressed="${!!mix.muted[t.k]}" aria-label="${t.name}をミュート">ミュート</button>`;
+    const input = row.querySelector("input"), out = row.querySelector("output"), btn = row.querySelector("button");
+    input.addEventListener("input", () => {
+      mix.vol[t.k] = +input.value; out.textContent = input.value + "%";
+      setPreset(null); if (player) applyMix(player.gr, S());
+    });
+    btn.onclick = () => {
+      mix.muted[t.k] = !mix.muted[t.k];
+      btn.setAttribute("aria-pressed", String(mix.muted[t.k])); row.classList.toggle("muted", mix.muted[t.k]);
+      setPreset(null); if (player) applyMix(player.gr, S());
+    };
+    host.appendChild(row);
+  }
+}
+function setPreset(p) {
+  mix.preset = p;
+  document.querySelectorAll("#mixPreset button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === p)));
+}
+function applyPreset(p) {
+  mix.vol = { ...MIX_PRESETS[p] }; mix.muted = {};
+  // アカペラと声だけのときは、低い声をベース役にする
+  const wantBass = p === "acappella" || p === "solo";
+  const bassChanged = $("octDown").checked !== wantBass;
+  $("octDown").checked = wantBass;
+  renderMixer(); setPreset(p);
+  if (player) { if (bassChanged) restartIfPlaying(); else applyMix(player.gr, S()); }
+}
+function bindSeg(id, key, after) {
+  document.querySelectorAll(`#${id} button`).forEach((b) => (b.onclick = async () => {
+    state[key] = b.dataset.v;
+    document.querySelectorAll(`#${id} button`).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    if (after) await after();
+    restartIfPlaying();
+  }));
+}
+function updateKey() {
+  const p = parts[state.part]; if (!p) return;
+  $("keyTxt").textContent = `${NAMES[p.key]} メジャー · ${p.notes.length}音`;
+}
+
+(async function init() {
+  refreshOutputs();
+  clip = (await loadSavedClip()) || synthSample();
+  $("clipBadge").textContent = clip.mine ? "あなたの声" : "サンプル声（合成）";
+  $("clipBadge").classList.toggle("mine", clip.mine);
+  await loadPart("lead"); updateKey();
+  loadPart("backing");
+  chords = (await (await fetch("songs/doremi-chords.json")).json()).chords;
+  const syncMode = () => {
+    $("modeHint").textContent = MODE_HINT[state.mode];
+    const off = state.mode === "chord";
+    document.querySelectorAll("#harmSeg button").forEach((b) => (b.disabled = off));
+  };
+  syncMode();
+  bindSeg("modeSeg", "mode", syncMode);
+  renderMixer();
+  document.querySelectorAll("#mixPreset button").forEach((b) => (b.onclick = () => applyPreset(b.dataset.p)));
+  loadStems().then((b) => { $("seek").max = b.duration.toFixed(1); $("tDur").textContent = fmt(b.duration); })
+    .catch((e) => { $("nowTxt").textContent = "曲を読み込めませんでした"; console.error(e); });
+  bindSeg("partSeg", "part", async () => { await loadPart(state.part); updateKey(); });
+  bindSeg("harmSeg", "harm");
+  ["voices", "spread", "oct", "reverb"].forEach((id) => $(id).addEventListener("input", () => {
+    refreshOutputs();
+    if (player) { if (["oct"].includes(id)) restartIfPlaying(); else applyMix(player.gr, S()); }
+  }));
+  ["mel", "octDown"].forEach((id) => $(id).addEventListener("change", restartIfPlaying));
+  $("seek").addEventListener("change", () => { if (player) play(+$("seek").value); });
+  $("playBtn").onclick = () => (player ? stopPlay() : play(+$("seek").value));
+  $("wavBtn").onclick = exportWav;
+  requestAnimationFrame(drawRoll);
+})();
+</script>
+</body>
+</html>

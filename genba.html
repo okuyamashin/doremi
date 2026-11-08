@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ひと声オーケストラ 現場モード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: same column as the main page; the call chart is a bar grid like a rhythm-game score */
+:root {
+  --bg: #eef1f4; --panel: #ffffff; --fg: #1b2230; --muted: #5d6779; --line: #d5dbe4;
+  --accent: #3546d6; --accent-ink: #ffffff; --soft: #e3e7fb; --ok: #17905a;
+  --p-none: #e6e9ee; --p-hai: #ffd23f; --p-ura: #ffa94d; --p-fuffu: #ff6fa8; --p-mix: #b05cff; --p-long: #3fb6ff; --p-rapid: #ff4d4d;
+  --p-ink: #1b2230;
+  --display: "Dela Gothic One", "Hiragino Sans", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11141b; --panel: #1a1f29; --fg: #e6e9f0; --muted: #98a1b3; --line: #2c3342;
+    --accent: #8796ff; --accent-ink: #10131a; --soft: #242b45; --ok: #3ccf8a;
+    --p-none: #232936; --p-hai: #e8bb2a; --p-ura: #e8913a; --p-fuffu: #e8588f; --p-mix: #9a4ae6; --p-long: #2f9fe3; --p-rapid: #e63b3b;
+    --p-ink: #10131a;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 20px) calc(env(safe-area-inset-bottom, 0px) + 110px);
+}
+main { max-width: 640px; margin: 0 auto; display: grid; gap: 18px; }
+header h1 { font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1.2; margin: 0; text-wrap: balance; }
+header h1 small { display: block; font-size: 15px; color: var(--accent); letter-spacing: .1em; }
+header p { margin: 6px 0 0; color: var(--muted); }
+a { color: var(--accent); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.card h2 { margin: 0; font-size: 18px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, select, input[type=number] {
+  font: inherit; font-weight: 500; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); padding: 10px 14px; min-height: 44px; cursor: pointer;
+}
+input[type=number] { width: 6.5em; cursor: text; font-family: var(--mono); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 700; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.badge { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--soft); color: var(--accent); }
+.badge.mine { background: color-mix(in srgb, var(--ok) 18%, var(--panel)); color: var(--ok); }
+.ctrl { display: grid; grid-template-columns: 7em 1fr 4.6em; gap: 10px; align-items: center; }
+.ctrl output { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13px; text-align: right; color: var(--muted); }
+input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); }
+details summary { cursor: pointer; font-weight: 700; }
+details[open] summary { margin-bottom: 10px; }
+details .ctrl + .ctrl { margin-top: 8px; }
+.custom { display: grid; gap: 10px; }
+.custom label { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* palette & chart */
+.palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.palette button { display: flex; gap: 6px; align-items: center; padding: 6px 10px; min-height: 40px; font-size: 14px; }
+.palette button i { width: 20px; height: 20px; border-radius: 5px; display: inline-grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; color: var(--p-ink); }
+.palette button[aria-pressed="true"] { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+.section-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .06em; margin: 6px 0 4px; display: flex; justify-content: space-between; }
+.section-label button { min-height: 0; padding: 2px 10px; font-size: 12px; }
+.bars { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; }
+.bar {
+  min-height: 44px; padding: 2px 0 0; border-radius: 7px; border: 2px solid transparent; display: grid; grid-template-rows: auto 1fr;
+  justify-items: center; align-items: center; color: var(--p-ink); font-weight: 700; font-size: 13px; line-height: 1.1;
+}
+.bar small { font-family: var(--mono); font-size: 9px; opacity: .7; }
+.bar.none { color: var(--muted); }
+.bar.now { border-color: var(--fg); transform: scale(1.06); }
+.p-none { background: var(--p-none); } .p-hai { background: var(--p-hai); } .p-ura { background: var(--p-ura); }
+.p-fuffu { background: var(--p-fuffu); } .p-mix { background: var(--p-mix); } .p-long { background: var(--p-long); } .p-rapid { background: var(--p-rapid); }
+
+/* transport */
+.transport {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--panel); border-top: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
+}
+.transport .inner { max-width: 640px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+.transport select { min-width: 0; }
+.transport .pos { grid-column: 1 / -1; display: flex; justify-content: space-between; }
+#playBtn { min-width: 6em; }
+@media (prefers-reduced-motion: reduce) { .bar.now { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><small>ひと声オーケストラ</small>現場モード</h1>
+    <p>録った「ドー」が100人のオタクになって、曲に掛け声を入れます。ドの声は<a href="index.html">STEP 1</a>で録れます。</p>
+  </header>
+
+  <section class="card" aria-labelledby="hSong">
+    <h2 id="hSong">曲</h2>
+    <div class="row" style="justify-content:space-between">
+      <strong id="songTitle">ドレミの恋</strong>
+      <span class="mono" id="songMeta">128 BPM · 1小節目 0.604秒</span>
+    </div>
+    <div class="seg" role="group" aria-label="伴奏の種類" id="srcSeg">
+      <button data-src="full" aria-pressed="true">ボーカル入り</button>
+      <button data-src="inst" aria-pressed="false">伴奏だけ</button>
+    </div>
+    <p class="hint" id="loadState">読み込み中…</p>
+    <details>
+      <summary>ほかの曲を使う</summary>
+      <div class="custom">
+        <label>音声ファイル <input type="file" id="fileIn" accept="audio/*"></label>
+        <label>BPM <input type="number" id="bpmIn" min="40" max="300" step="0.01" value="128"></label>
+        <label>1小節目の頭（秒） <input type="number" id="firstIn" min="0" max="30" step="0.001" value="0.604"></label>
+        <p class="hint">BPM と頭の位置がずれていると、掛け声もずれます。</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="hCrowd">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="hCrowd">現場の人たち</h2>
+      <span class="badge" id="clipBadge">サンプル声（合成）</span>
+    </div>
+    <div class="ctrl"><label for="count">人数</label><input id="count" type="range" min="1" max="150" step="1" value="80"><output id="countOut"></output></div>
+    <div class="ctrl"><label for="low">低い声の割合</label><input id="low" type="range" min="0" max="100" step="5" value="65"><output id="lowOut"></output></div>
+    <div class="ctrl"><label for="spread">音程のばらつき</label><input id="spread" type="range" min="0" max="150" step="5" value="45"><output id="spreadOut"></output></div>
+    <div class="ctrl"><label for="lag">もたつき</label><input id="lag" type="range" min="0" max="200" step="5" value="70"><output id="lagOut"></output></div>
+    <details>
+      <summary>音のバランス</summary>
+      <div class="ctrl"><label for="pitch">掛け声の高さ</label><input id="pitch" type="range" min="-12" max="12" step="1" value="0"><output id="pitchOut"></output></div>
+      <div class="ctrl"><label for="room">ライブハウス感</label><input id="room" type="range" min="0" max="100" step="1" value="35"><output id="roomOut"></output></div>
+      <div class="ctrl"><label for="crowdVol">掛け声の音量</label><input id="crowdVol" type="range" min="0" max="150" step="1" value="85"><output id="crowdVolOut"></output></div>
+      <div class="ctrl"><label for="songVol">曲の音量</label><input id="songVol" type="range" min="0" max="120" step="1" value="80"><output id="songVolOut"></output></div>
+      <div class="ctrl"><label for="nudge">タイミング補正</label><input id="nudge" type="range" min="-150" max="150" step="5" value="0"><output id="nudgeOut"></output></div>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="hChart">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="hChart">コール表</h2>
+      <button id="resetChart">最初の配置に戻す</button>
+    </div>
+    <div class="palette" role="radiogroup" aria-label="塗る掛け声" id="palette"></div>
+    <p class="hint">掛け声を選んでから小節をタップすると、その小節に入ります。再生中に変えても次の小節から反映されます。</p>
+    <div id="chart"></div>
+  </section>
+</main>
+
+<div class="transport">
+  <div class="inner">
+    <select id="fromSel" aria-label="再生を始める位置"></select>
+    <button id="playBtn" class="primary">再生</button>
+    <button id="wavBtn">WAVで保存</button>
+    <div class="pos mono"><span id="posBar">—</span><span id="posTime">0:00 / 0:00</span></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const C4 = 261.6256;
+const $ = (id) => document.getElementById(id);
+let ctx = null;
+function audio() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+async function resume() { const c = audio(); if (c.state !== "running") await c.resume(); return c; }
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// ---------- 掛け声の種類 ----------
+const PATTERNS = {
+  none:  { label: "なし",     glyph: "·" },
+  hai:   { label: "はい！(2・4拍)", glyph: "ハ" },
+  ura:   { label: "裏打ち",   glyph: "ウ" },
+  fuffu: { label: "フッフー", glyph: "フ" },
+  mix:   { label: "MIX",      glyph: "M" },
+  long:  { label: "叫び",     glyph: "ー" },
+  rapid: { label: "連打",     glyph: "連" },
+};
+const LOW = Math.pow(2, -3 / 12);
+function hitsFor(p) {
+  switch (p) {
+    case "hai": return [[1, "short"], [3, "short"]];
+    case "ura": return [[0.5, "short"], [1.5, "short"], [2.5, "short"], [3.5, "short"]];
+    case "fuffu": return [[1, "short"], [3, "short"], [3.5, "rise"]];
+    case "mix": return [[0, "fall"], [1, "fall", LOW], [2, "fall"], [3, "fall", LOW]];
+    case "long": return [[0, "long"]];
+    case "rapid": return Array.from({ length: 16 }, (_, i) => [i / 4, "short", i % 2 ? 1 : Math.pow(2, 1 / 12)]);
+    default: return [];
+  }
+}
+
+// ---------- 曲の設定 ----------
+const DOREMI = {
+  key: "doremi", title: "ドレミの恋", bpm: 128, first: 0.604,
+  sources: { full: "songs/doremi-full.m4a", inst: "songs/doremi-inst.m4a" },
+  sections: [
+    { name: "1番", from: 1, to: 33 },
+    { name: "間奏", from: 34, to: 35 },
+    { name: "2番〜ラスサビ", from: 36, to: 67 },
+    { name: "アウトロ", from: 68, to: 78 },
+  ],
+  chart() {
+    const c = {};
+    const fill = (a, b, p) => { for (let i = a; i <= b; i++) c[i] = p; };
+    fill(1, 8, "hai"); c[9] = "long"; fill(10, 16, "hai");
+    c[17] = "long"; fill(18, 32, "ura"); c[33] = "fuffu";
+    fill(34, 35, "mix");
+    fill(36, 49, "hai"); c[50] = "long"; fill(51, 66, "ura"); c[67] = "fuffu";
+    fill(68, 75, "mix"); c[76] = "rapid"; c[77] = "long"; c[78] = "none";
+    return c;
+  },
+};
+let song = { ...DOREMI };
+let chart = {};
+let srcKind = "full";
+const backing = {}; // srcKind -> AudioBuffer
+let customBuffer = null;
+
+const spb = () => 60 / song.bpm;
+const barSec = () => 4 * spb();
+const barStart = (n) => song.first + (n - 1) * barSec();
+function currentBuffer() { return song.key === "doremi" ? backing[srcKind] : customBuffer; }
+function barCount() {
+  const b = currentBuffer();
+  const dur = b ? b.duration : 147;
+  return Math.max(1, Math.floor((dur - song.first) / barSec()));
+}
+
+function loadChart() {
+  const saved = store.get("genba-chart-" + song.key);
+  chart = saved || (song.chart ? song.chart() : {});
+}
+function saveChart() { store.set("genba-chart-" + song.key, chart); }
+
+// ---------- 声のクリップ ----------
+let clip = null;
+function makeClip(data, sr, f0, stableStart, stableEnd, mine) {
+  const s0 = Math.floor(stableStart * sr), s1 = Math.floor(stableEnd * sr);
+  let peak = 0;
+  for (let i = s0; i < s1; i++) peak = Math.max(peak, Math.abs(data[i]));
+  const g = peak > 0 ? 0.9 / peak : 1;
+  const out = new Float32Array(data.length);
+  for (let i = 0; i < data.length; i++) out[i] = Math.max(-1, Math.min(1, data[i] * g));
+  const fade = Math.floor(sr * 0.02);
+  for (let i = 0; i < fade && i < out.length; i++) { out[i] *= i / fade; out[out.length - 1 - i] *= i / fade; }
+  const buffer = audio().createBuffer(1, out.length, sr);
+  buffer.copyToChannel(out, 0);
+  const S = stableEnd - stableStart;
+  let ls = Math.floor((stableStart + S * 0.25) * sr);
+  for (let i = ls; i < ls + sr / f0 * 2 && i < out.length - 1; i++) { if (out[i] <= 0 && out[i + 1] > 0) { ls = i; break; } }
+  const n = Math.max(1, Math.floor((S * 0.5 * sr) / (sr / f0)));
+  return { buffer, f0, stableStart, stableEnd, loopStart: ls / sr, loopEnd: (ls + n * sr / f0) / sr, mine, sr };
+}
+function synthSample() {
+  const sr = audio().sampleRate, dur = 1.6, N = Math.floor(sr * dur);
+  const data = new Float32Array(N);
+  const F = [[800, 1, 90], [1150, 0.5, 100], [2900, 0.22, 150]];
+  const H = Math.floor(4500 / C4), amps = [];
+  for (let h = 1; h <= H; h++) { let a = 0; for (const [fc, g, bw] of F) a += g / (1 + ((C4 * h - fc) / bw) ** 2); amps.push((a + 0.02) / Math.sqrt(h)); }
+  const ph = new Float64Array(H);
+  for (let i = 0; i < N; i++) {
+    const t = i / sr, f = C4 * (1 + (t > 0.45 ? 0.006 * Math.sin(2 * Math.PI * 5.2 * t) : 0));
+    let s = 0;
+    for (let h = 0; h < H; h++) { ph[h] += 2 * Math.PI * f * (h + 1) / sr; s += amps[h] * Math.sin(ph[h]); }
+    data[i] = s * Math.min(1, t / 0.08) * Math.min(1, (dur - t) / 0.15) * 0.3;
+  }
+  return makeClip(data, sr, C4, 0.15, 1.42, false);
+}
+async function loadSavedClip() {
+  try {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("hitokoe", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("clips");
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    const v = await new Promise((res) => {
+      const r = db.transaction("clips").objectStore("clips").get("main");
+      r.onsuccess = () => res(r.result || null); r.onerror = () => res(null);
+    });
+    if (v && v.data && v.data.length) return makeClip(v.data, v.sr, v.f0, v.stableStart, v.stableEnd, true);
+  } catch {}
+  return null;
+}
+
+// ---------- 設定値 ----------
+const S = () => ({
+  count: +$("count").value, low: +$("low").value / 100, spread: +$("spread").value, lag: +$("lag").value / 1000,
+  pitch: +$("pitch").value, room: +$("room").value / 100, crowdVol: +$("crowdVol").value / 100,
+  songVol: +$("songVol").value / 100, nudge: +$("nudge").value / 1000,
+});
+const CTRL_IDS = ["count", "low", "spread", "lag", "pitch", "room", "crowdVol", "songVol", "nudge"];
+function refreshOutputs() {
+  const s = S();
+  $("countOut").textContent = s.count + "人";
+  $("lowOut").textContent = Math.round(s.low * 100) + "%";
+  $("spreadOut").textContent = "±" + s.spread + "¢";
+  $("lagOut").textContent = Math.round(s.lag * 1000) + "ms";
+  $("pitchOut").textContent = (s.pitch > 0 ? "+" : "") + s.pitch;
+  $("roomOut").textContent = Math.round(s.room * 100) + "%";
+  $("crowdVolOut").textContent = Math.round(s.crowdVol * 100) + "%";
+  $("songVolOut").textContent = Math.round(s.songVol * 100) + "%";
+  $("nudgeOut").textContent = (s.nudge > 0 ? "+" : "") + Math.round(s.nudge * 1000) + "ms";
+}
+
+// ---------- 現場の声（掛け声ごとに100人分を先に作っておく） ----------
+const KINDS = ["short", "fall", "rise", "long"];
+const VARIANTS = 3, LEAD = 0.03;
+let banks = null, bankJob = 0;
+
+function gauss() { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function makeCrowd(s) {
+  const crowd = [];
+  for (let i = 0; i < s.count; i++) {
+    crowd.push({
+      low: Math.random() < s.low, cents: gauss() * s.spread * 0.6, lag: Math.pow(Math.random(), 1.6) * s.lag,
+      pan: s.count > 1 ? (Math.random() * 2 - 1) * 0.9 : 0, amp: 0.55 + Math.random() * 0.45,
+    });
+  }
+  return crowd;
+}
+function shout(c, out, kind, v, t, s, gain) {
+  const baseC = C4 * Math.pow(2, Math.round(Math.log2(clip.f0 / C4)));
+  const r = (baseC * Math.pow(2, (s.pitch + (v.low ? -12 : 0)) / 12)) / clip.f0;
+  const st = (n) => Math.pow(2, n / 12);
+  let dur, r0, r1, holdTo = 0, atk = 0.005, rel = 0.06;
+  if (kind === "short") { dur = 0.12; r0 = r; r1 = r * st(-2); }
+  else if (kind === "fall") { dur = 0.3; r0 = r * st(1); r1 = r * st(-7); }
+  else if (kind === "rise") { dur = 0.42; r0 = r * st(-4); r1 = r * st(3); }
+  else { dur = 3.3 * spb(); r0 = r; r1 = r * st(5); holdTo = dur * 0.6; atk = 0.03; rel = 0.18; }
+  const src = c.createBufferSource();
+  src.buffer = clip.buffer;
+  if (src.detune) src.detune.value = v.cents;
+  const offset = Math.max(0, clip.stableStart - 0.01);
+  const maxR = Math.max(r0, r1);
+  if ((dur + rel) * maxR > clip.buffer.duration - offset - 0.05) { src.loop = true; src.loopStart = clip.loopStart; src.loopEnd = clip.loopEnd; }
+  src.playbackRate.setValueAtTime(r0, t);
+  if (holdTo) src.playbackRate.setValueAtTime(r0, t + holdTo);
+  src.playbackRate.exponentialRampToValueAtTime(r1, t + dur);
+  const g = c.createGain();
+  const a = v.amp * gain;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(a, t + atk);
+  g.gain.linearRampToValueAtTime(a * (kind === "long" ? 0.9 : 0.6), t + dur);
+  g.gain.linearRampToValueAtTime(0, t + dur + rel);
+  src.connect(g);
+  if (c.createStereoPanner && v.pan) { const p = c.createStereoPanner(); p.pan.value = v.pan; g.connect(p); p.connect(out); }
+  else g.connect(out);
+  src.start(t, offset);
+  src.stop(t + dur + rel + 0.02);
+}
+async function buildBanks() {
+  const job = ++bankJob;
+  const s = S(), sr = audio().sampleRate;
+  const crowd = makeCrowd(s);
+  const next = {};
+  for (const kind of KINDS) {
+    next[kind] = [];
+    const len = (kind === "long" ? 3.3 * spb() + 0.5 : kind === "rise" ? 0.7 : 0.5) + s.lag + LEAD + 0.05;
+    for (let k = 0; k < VARIANTS; k++) {
+      const oc = new OfflineAudioContext(2, Math.ceil(len * sr), sr);
+      const bus = oc.createGain(); bus.connect(oc.destination);
+      for (const v of crowd) shout(oc, bus, kind, v, LEAD + v.lag + Math.random() * 0.012, s, 1 / Math.sqrt(crowd.length));
+      const buf = await oc.startRendering();
+      normalize(buf, 0.85);
+      next[kind].push(buf);
+      if (job !== bankJob) return; // 設定がまた変わった
+    }
+  }
+  banks = next;
+}
+let bankTimer = 0;
+function rebuildSoon() { clearTimeout(bankTimer); bankTimer = setTimeout(buildBanks, 250); }
+
+// ---------- 音の配線 ----------
+const irs = {};
+function liveHouseIR(c) {
+  if (irs[c.sampleRate]) return irs[c.sampleRate];
+  const sr = c.sampleRate, len = Math.floor(sr * 1.3), b = c.createBuffer(2, len, sr);
+  const taps = [0.011, 0.019, 0.027, 0.041, 0.053, 0.067];
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch);
+    for (const tp of taps) d[Math.floor((tp + ch * 0.003) * sr)] += 0.5 - tp * 4;
+    for (let i = Math.floor(0.01 * sr); i < len; i++) d[i] += (Math.random() * 2 - 1) * 0.35 * Math.exp(-(i / sr) * 5.5);
+  }
+  return (irs[c.sampleRate] = b);
+}
+function makeGraph(c) {
+  const s = S();
+  const master = c.createGain(), comp = c.createDynamicsCompressor();
+  comp.threshold.value = -10; comp.ratio.value = 3;
+  const songGain = c.createGain(), crowdBus = c.createGain(), dry = c.createGain(), wet = c.createGain(), conv = c.createConvolver(), crowdOut = c.createGain();
+  conv.buffer = liveHouseIR(c);
+  songGain.connect(master);
+  crowdBus.connect(dry); dry.connect(crowdOut);
+  crowdBus.connect(conv); conv.connect(wet); wet.connect(crowdOut);
+  crowdOut.connect(master);
+  master.connect(comp); comp.connect(c.destination);
+  const gr = { master, songGain, crowdBus, dry, wet, crowdOut };
+  applyMix(gr, s);
+  return gr;
+}
+function applyMix(gr, s) {
+  gr.songGain.gain.value = s.songVol;
+  gr.crowdOut.gain.value = s.crowdVol * 0.75;
+  gr.dry.gain.value = 1 - s.room * 0.5;
+  gr.wet.gain.value = s.room * 0.8;
+}
+
+function scheduleBar(c, gr, n, t0, s) {
+  const p = chart[n] || "none";
+  for (const [beat, kind, rate = 1] of hitsFor(p)) {
+    const bank = banks && banks[kind];
+    if (!bank) continue;
+    const when = t0 + barStart(n) + beat * spb() + s.nudge - LEAD;
+    const src = c.createBufferSource();
+    src.buffer = bank[Math.floor(Math.random() * bank.length)];
+    src.playbackRate.value = rate;
+    src.connect(gr.crowdBus);
+    if (when >= c.currentTime) src.start(when);
+    else { const late = c.currentTime - when; if (late < 0.05) src.start(c.currentTime, late); }
+  }
+}
+
+// ---------- 再生 ----------
+let player = null;
+async function play(fromBar) {
+  const c = await resume();
+  const buf = currentBuffer();
+  if (!buf) return;
+  if (!banks) await buildBanks();
+  stopPlay();
+  const gr = makeGraph(c);
+  const startSec = Math.max(0, fromBar > 1 ? barStart(fromBar) - barSec() * 0.5 : 0);
+  const t0 = c.currentTime + 0.15 - startSec; // 曲の0秒に当たる時刻
+  const src = c.createBufferSource();
+  src.buffer = buf; src.connect(gr.songGain);
+  src.start(t0 + startSec, startSec);
+  player = { gr, src, t0, nextBar: Math.max(1, fromBar), endAt: t0 + buf.duration };
+  src.onended = () => { if (player && player.src === src) stopPlay(); };
+  player.timer = setInterval(tick, 30);
+  tick();
+  $("playBtn").textContent = "停止";
+}
+function tick() {
+  const p = player; if (!p) return;
+  const c = audio(), s = S(), total = barCount();
+  while (p.nextBar <= total && p.t0 + barStart(p.nextBar) < c.currentTime + 0.35) {
+    scheduleBar(c, p.gr, p.nextBar, p.t0, s);
+    p.nextBar++;
+  }
+}
+function stopPlay() {
+  if (!player) return;
+  const p = player; player = null;
+  clearInterval(p.timer);
+  const c = audio(), t = c.currentTime;
+  p.gr.master.gain.setValueAtTime(p.gr.master.gain.value, t);
+  p.gr.master.gain.linearRampToValueAtTime(0, t + 0.08);
+  setTimeout(() => { try { p.src.stop(); } catch {} p.gr.master.disconnect(); }, 150);
+  $("playBtn").textContent = "再生";
+  markNow(0);
+}
+
+// ---------- 書き出し ----------
+async function exportWav() {
+  const buf = currentBuffer(); if (!buf) return;
+  const btn = $("wavBtn"); btn.disabled = true; btn.textContent = "作成中…";
+  try {
+    if (!banks) await buildBanks();
+    const s = S(), sr = buf.sampleRate;
+    const oc = new OfflineAudioContext(2, buf.length + Math.floor(sr * 1.5), sr);
+    const master = oc.createGain(), songGain = oc.createGain(), crowdBus = oc.createGain(), dry = oc.createGain(), wet = oc.createGain(), conv = oc.createConvolver(), crowdOut = oc.createGain();
+    conv.buffer = liveHouseIR(oc);
+    songGain.connect(master); crowdBus.connect(dry); dry.connect(crowdOut); crowdBus.connect(conv); conv.connect(wet); wet.connect(crowdOut); crowdOut.connect(master); master.connect(oc.destination);
+    const gr = { master, songGain, crowdBus, dry, wet, crowdOut };
+    applyMix(gr, s);
+    const src = oc.createBufferSource(); src.buffer = buf; src.connect(songGain); src.start(0);
+    const fake = { currentTime: 0, createBufferSource: () => oc.createBufferSource() };
+    for (let n = 1; n <= barCount(); n++) scheduleBar(fake, gr, n, 0, s);
+    const out = await oc.startRendering();
+    normalize(out, 0.95);
+    const blob = encodeWav(out);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `genba-${song.key}.wav`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+  } catch (e) { console.error(e); $("loadState").textContent = "書き出しに失敗しました: " + e.message; }
+  finally { btn.disabled = false; btn.textContent = "WAVで保存"; }
+}
+function normalize(buf, target) {
+  let pk = 0;
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); }
+  if (pk > 0) for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= target / pk; }
+}
+function encodeWav(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate;
+  const dv = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, "RIFF"); dv.setUint32(4, 36 + n * ch * 2, true); str(8, "WAVE"); str(12, "fmt ");
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, ch, true); dv.setUint32(24, sr, true);
+  dv.setUint32(28, sr * ch * 2, true); dv.setUint16(32, ch * 2, true); dv.setUint16(34, 16, true);
+  str(36, "data"); dv.setUint32(40, n * ch * 2, true);
+  const chans = []; for (let c = 0; c < ch; c++) chans.push(buf.getChannelData(c));
+  let o = 44;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = Math.max(-1, Math.min(1, chans[c][i])); dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+  return new Blob([dv], { type: "audio/wav" });
+}
+
+// ---------- 画面 ----------
+let brush = "hai";
+function renderPalette() {
+  const pal = $("palette"); pal.innerHTML = "";
+  for (const [k, p] of Object.entries(PATTERNS)) {
+    const b = document.createElement("button");
+    b.setAttribute("role", "radio"); b.setAttribute("aria-pressed", String(k === brush)); b.setAttribute("aria-checked", String(k === brush));
+    b.innerHTML = `<i class="p-${k}">${p.glyph}</i>${p.label}`;
+    b.onclick = () => { brush = k; renderPalette(); };
+    pal.appendChild(b);
+  }
+}
+let cells = [];
+function renderChart() {
+  const host = $("chart"); host.innerHTML = ""; cells = [];
+  const total = barCount();
+  const secs = song.sections || [{ name: "全体", from: 1, to: total }];
+  for (const sec of secs) {
+    const lab = document.createElement("div"); lab.className = "section-label";
+    const t = barStart(sec.from);
+    lab.innerHTML = `<span>${sec.name}　${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}〜</span>`;
+    const fill = document.createElement("button"); fill.textContent = "全部塗る";
+    fill.onclick = () => { for (let n = sec.from; n <= Math.min(sec.to, total); n++) chart[n] = brush; saveChart(); renderChart(); };
+    lab.appendChild(fill);
+    host.appendChild(lab);
+    const grid = document.createElement("div"); grid.className = "bars";
+    for (let n = sec.from; n <= Math.min(sec.to, total); n++) {
+      const p = chart[n] || "none";
+      const b = document.createElement("button");
+      b.className = `bar p-${p}` + (p === "none" ? " none" : "");
+      b.innerHTML = `<small>${n}</small>${PATTERNS[p].glyph}`;
+      b.setAttribute("aria-label", `${n}小節目: ${PATTERNS[p].label}`);
+      b.onclick = () => { chart[n] = brush; saveChart(); renderChart(); };
+      cells[n] = b;
+      grid.appendChild(b);
+    }
+    host.appendChild(grid);
+  }
+  const from = $("fromSel"), keep = from.value; from.innerHTML = "";
+  for (const sec of [{ name: "頭から", from: 1 }, ...secs.slice(1)]) {
+    const o = document.createElement("option"); o.value = sec.from; o.textContent = sec.name === "頭から" ? "頭から" : sec.name + "から";
+    from.appendChild(o);
+  }
+  if ([...from.options].some((o) => o.value === keep)) from.value = keep;
+}
+let nowBar = 0;
+function markNow(n) {
+  if (n === nowBar) return;
+  if (cells[nowBar]) cells[nowBar].classList.remove("now");
+  nowBar = n;
+  if (cells[n]) cells[n].classList.add("now");
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+function frame() {
+  const buf = currentBuffer();
+  if (player && buf) {
+    const t = audio().currentTime - player.t0;
+    const n = t >= song.first ? Math.floor((t - song.first) / barSec()) + 1 : 0;
+    markNow(n <= barCount() ? n : 0);
+    $("posBar").textContent = n > 0 ? `${n}小節目 · ${PATTERNS[chart[n] || "none"].label}` : "前奏";
+    $("posTime").textContent = `${fmt(Math.max(0, t))} / ${fmt(buf.duration)}`;
+  } else if (buf) {
+    $("posBar").textContent = `${barCount()}小節`;
+    $("posTime").textContent = `0:00 / ${fmt(buf.duration)}`;
+  }
+  requestAnimationFrame(frame);
+}
+
+async function loadBacking(kind) {
+  if (backing[kind]) return backing[kind];
+  $("loadState").textContent = "曲を読み込み中…";
+  const res = await fetch(song.sources[kind]);
+  if (!res.ok) throw new Error(song.sources[kind] + " が見つかりません");
+  const buf = await audio().decodeAudioData(await res.arrayBuffer());
+  backing[kind] = buf;
+  return buf;
+}
+async function selectSource(kind) {
+  srcKind = kind;
+  document.querySelectorAll("#srcSeg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.src === kind)));
+  const wasPlaying = !!player; stopPlay();
+  try {
+    await loadBacking(kind);
+    $("loadState").textContent = kind === "full" ? "アイドルの歌に掛け声がかぶる、ライブそのままの形です。" : "歌なしの伴奏です。掛け声だけがよく聞こえます。";
+    renderChart();
+    if (wasPlaying) play(+$("fromSel").value);
+  } catch (e) { $("loadState").textContent = "読み込めませんでした: " + e.message; }
+}
+function updateMeta() { $("songTitle").textContent = song.title; $("songMeta").textContent = `${song.bpm} BPM · 1小節目 ${song.first}秒`; }
+
+(async function init() {
+  refreshOutputs(); renderPalette();
+  const saved = await loadSavedClip();
+  clip = saved || synthSample();
+  $("clipBadge").textContent = clip.mine ? "あなたの声" : "サンプル声（合成）";
+  $("clipBadge").classList.toggle("mine", clip.mine);
+  loadChart();
+  renderChart();
+  selectSource("full");
+  buildBanks();
+
+  CTRL_IDS.forEach((id) => $(id).addEventListener("input", () => {
+    refreshOutputs();
+    if (["count", "low", "spread", "lag", "pitch"].includes(id)) rebuildSoon();
+    if (player) applyMix(player.gr, S());
+  }));
+  document.querySelectorAll("#srcSeg button").forEach((b) => (b.onclick = () => {
+    if (song.key !== "doremi") { song = { ...DOREMI }; updateMeta(); loadChart(); }
+    selectSource(b.dataset.src);
+  }));
+  $("playBtn").onclick = () => (player ? stopPlay() : play(+$("fromSel").value));
+  $("wavBtn").onclick = exportWav;
+  $("resetChart").onclick = () => { chart = song.chart ? song.chart() : {}; saveChart(); renderChart(); };
+  $("fileIn").onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    stopPlay();
+    $("loadState").textContent = "読み込み中…";
+    try {
+      customBuffer = await audio().decodeAudioData(await f.arrayBuffer());
+      song = { key: "custom:" + f.name, title: f.name.replace(/\.[^.]+$/, ""), bpm: +$("bpmIn").value || 120, first: +$("firstIn").value || 0, sections: null,
+        chart() { const c = {}; for (let i = 1; i <= 400; i++) c[i] = "hai"; return c; } };
+      document.querySelectorAll("#srcSeg button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+      updateMeta(); loadChart(); renderChart(); buildBanks();
+      $("loadState").textContent = "読み込みました。BPM と頭の位置を合わせてください。";
+    } catch (err) { $("loadState").textContent = "このファイルは読み込めませんでした。"; }
+  };
+  ["bpmIn", "firstIn"].forEach((id) => $(id).addEventListener("change", () => {
+    if (song.key === "doremi") return;
+    song.bpm = +$("bpmIn").value || 120; song.first = +$("firstIn").value || 0;
+    updateMeta(); renderChart(); buildBanks();
+  }));
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
